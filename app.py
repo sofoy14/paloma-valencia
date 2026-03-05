@@ -272,5 +272,6 @@ if __name__ == '__main__':
     run_monitoring_job()
     
     # Iniciar servidor
-    print("\n✅ Sistema activo - 6 agentes corriendo\n")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+    port = int(os.environ.get('PORT', 5000))
+    print(f"\n✅ Sistema activo - 6 agentes corriendo en puerto {port}\n")
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, use_reloader=False)
