@@ -1,19 +1,14 @@
-# Dockerfile para deploy en la nube (Render, Railway, etc.)
+# Dockerfile para deploy en Railway/Render
 FROM python:3.9-slim
 
-# Instalar Chrome y dependencias
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
-    chromium \
-    chromium-driver \
-    wget \
-    gnupg \
-    unzip \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Variables de entorno para Chrome
-ENV CHROME_BIN=/usr/bin/chromium
-ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+# Variables de entorno
 ENV PYTHONUNBUFFERED=1
+ENV PORT=5000
 
 # Crear directorio de trabajo
 WORKDIR /app
@@ -28,8 +23,8 @@ COPY . .
 # Crear directorios necesarios
 RUN mkdir -p data reports
 
-# Puerto que usa la app
+# Puerto que usa la app (Railway lo sobreescribe)
 EXPOSE 5000
 
-# Comando para iniciar
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "2", "--timeout", "120"]
+# Comando para iniciar - usar shell para expandir variables
+CMD exec gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120
