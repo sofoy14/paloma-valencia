@@ -103,10 +103,21 @@ class Orchestrator:
         processed = self._process_articles(all_articles, socketio)
         
         # ============================================================
-        # Competitor Agent
+        # Competitor Agent + IA
         # ============================================================
         try:
             competitor_summary = self.agents['competitor'].get_competitor_summary(processed)
+            
+            # Análisis con IA de competidores
+            if self.agents['gemini'] and self.agents['gemini'].enabled and processed:
+                for competitor in ['Gustavo Petro', 'Federico Gutiérrez']:
+                    try:
+                        ia_analysis = self.agents['gemini'].analyze_competitor_activity(processed, competitor)
+                        if ia_analysis and competitor in competitor_summary:
+                            competitor_summary[competitor]['ia_analysis'] = ia_analysis[:200]
+                    except:
+                        pass
+            
             if socketio and competitor_summary:
                 socketio.emit('competitor_update', competitor_summary)
         except Exception as e:
@@ -146,9 +157,27 @@ class Orchestrator:
         
         for article in articles:
             try:
-                # Análisis
+                # Análisis básico primero
                 analysis = self.agents['analyzer'].analyze_article(article)
                 article.update(analysis)
+                
+                # Análisis con IA (Gemini) si está disponible
+                if self.agents['gemini'] and self.agents['gemini'].enabled:
+                    try:
+                        gemini_analysis = self.agents['gemini'].analyze_article_advanced(
+                            article.get('title', ''),
+                            article.get('summary', ''),
+                            article.get('source', '')
+                        )
+                        if gemini_analysis:
+                            # Mezclar análisis básico con IA
+                            article.update(gemini_analysis)
+                            # Sobrescribir con análisis más preciso de IA
+                            article['sentiment'] = gemini_analysis.get('sentiment', article['sentiment'])
+                            article['relevance_score'] = gemini_analysis.get('relevance_score', article.get('relevance_score', 0))
+                            article['is_alert'] = gemini_analysis.get('is_alert', article.get('is_alert', False))
+                    except Exception as e:
+                        print(f"   ⚠️  Gemini analysis error: {e}")
                 
                 # Análisis específico para Twitter
                 if article.get('collected_via') == 'twitter':
@@ -206,7 +235,7 @@ class Orchestrator:
             print(f"   ⚠️  WhatsApp error: {e}")
     
     def generate_hourly_report(self):
-        """Genera reporte horario"""
+        """Genera reporte horario con IA"""
         try:
             print(f"\n[{datetime.now().strftime('%H:%M')}] 📊 Generando reporte horario...")
             
@@ -216,6 +245,15 @@ class Orchestrator:
             # Excel
             hour_label = datetime.now().strftime('%Y%m%d_%H%M')
             filename = self.agents['reporter'].generate_hourly_report(articles, stats, hour_label)
+            
+            # Reporte con IA si está disponible
+            if self.agents['gemini'] and self.agents['gemini'].enabled and articles:
+                try:
+                    ia_report = self.agents['gemini'].generate_campaign_report(articles, hours=1)
+                    if ia_report:
+                        print(f"   📝 Reporte IA generado ({len(ia_report)} chars)")
+                except Exception as e:
+                    print(f"   ⚠️  Error reporte IA: {e}")
             
             # Notificaciones
             top_articles = sorted(articles, key=lambda x: x.get('relevance_score', 0), reverse=True)[:5]
@@ -231,7 +269,7 @@ class Orchestrator:
         depto_con_rss = self.agents['rss'].get_departamentos_con_rss()
         depto_sin_rss = self.agents['rss'].get_departamentos_sin_rss()
         
-        return {
+        stats = {
             'departamentos_con_rss': len(depto_con_rss),
             'departamentos_con_scraper': len(depto_sin_rss),
             'total_departamentos_cobertos': 32,
@@ -241,3 +279,11 @@ class Orchestrator:
             'articulos_totales': self.stats['articles_collected'],
             'alertas_enviadas': self.stats['alerts_sent']
         }
+        
+        # Info de IA
+        if self.agents['gemini']:
+            gemini_info = self.agents['gemini'].get_model_info()
+            stats['ia_enabled'] = gemini_info['enabled']
+            stats['ia_model'] = gemini_info['model']
+        
+        return stats

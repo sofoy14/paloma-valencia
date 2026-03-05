@@ -11,6 +11,9 @@ openai==1.0.0
 textblob==0.17.1
 python-dateutil==2.8.2
 
+# IA - Google Gemini
+google-generativeai==0.3.2
+
 # WhatsApp
 twilio==8.10.0
 

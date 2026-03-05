@@ -188,13 +188,18 @@ class RSSAgent:
     
     CAMPAIGN_KEYWORDS = [
         'paloma valencia', 'palomavalencia', 'centro democratico',
-        'uribe', 'elecciones 2026', 'candidatos senado', 'congreso'
+        'elecciones 2026', 'elecciones colombia', 'jornada electoral',
+        'urnas', 'puestos de votacion', 'mesa electoral',
+        'testigo electoral', 'votacion', 'sufragio'
     ]
     
     ALERT_KEYWORDS = [
-        'escándalo', 'denuncia', 'corrupción', 'investigación',
-        'imputación', 'detención', 'acusación', 'fiscalía',
-        'captura', 'irregularidades', 'fraude', 'delito'
+        'grupos armados', 'eln', 'clan del golfo', 'farc disidencias',
+        'intimidacion', 'amenaza', 'violencia', 'ataque',
+        'bloqueo', 'cierre de via', 'impedir votar',
+        'irregularidades', 'fraude electoral', 'compra de votos',
+        'urnas', 'logistica electoral', 'transporte electoral',
+        'denuncia', 'fiscalia electoral', 'delito electoral'
     ]
     
     def __init__(self, mode='campaign'):

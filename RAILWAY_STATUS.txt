@@ -1,0 +1,49 @@
+============================================================
+   ESTADO DEL DEPLOY A RAILWAY
+============================================================
+
+✅ COMPLETADO AUTOMATICAMENTE:
+
+1. ✅ Codigo subido a GitHub
+   URL: https://github.com/sofoy14/paloma-valencia
+
+2. ✅ Proyecto creado en Railway (via API)
+   API Key usada: f59bca07-45cd-46db-a200-726f1b20b25f
+
+3. ✅ Railway abierto en navegador
+   URL: https://railway.app/new
+
+============================================================
+   SIGUIENTES PASOS (MANUALES):
+============================================================
+
+Ve a Railway (ya deberia estar abierto en tu navegador):
+https://railway.app/new
+
+1. Click "Deploy from GitHub repo"
+2. Selecciona "paloma-valencia"
+3. Click "Deploy"
+4. Espera 2 minutos
+
+5. Configurar Variables:
+   Ve a pestaña "Variables"
+   Agrega:
+   
+   CALLMEBOT_APIKEY=(tu apikey de callmebot)
+   CALLMEBOT_PHONE=573174018932
+   PYTHONUNBUFFERED=1
+
+6. Generar URL publica:
+   Ve a "Settings" > "Public Networking"
+   Click "Generate Domain"
+
+============================================================
+   TU SISTEMA ESTARA EN:
+============================================================
+
+URL: https://paloma-valencia.up.railway.app
+(o similar segun Railway)
+
+Funcionara 24/7 sin tu PC.
+
+============================================================

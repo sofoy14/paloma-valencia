@@ -23,6 +23,7 @@ from agents.analyzer_agent import AnalyzerAgent
 from agents.competitor_agent import CompetitorAgent
 from agents.notifications_agent import NotificationsAgent
 from agents.excel_reporter import ExcelReporter
+from agents.gemini_agent import GeminiAgent
 from agents.orchestrator import Orchestrator
 
 load_dotenv()
@@ -45,6 +46,7 @@ twitter_agent = TwitterAgent()
 analyzer_agent = AnalyzerAgent(use_openai=False)
 competitor_agent = CompetitorAgent()
 notifications_agent = NotificationsAgent()
+gemini_agent = GeminiAgent()  # IA - opcional
 
 # Orchestrator - Coordina todo el swarm
 orchestrator = Orchestrator(
@@ -57,7 +59,8 @@ orchestrator = Orchestrator(
     analyzer_agent=analyzer_agent,
     competitor_agent=competitor_agent,
     notifications_agent=notifications_agent,
-    reporter=reporter
+    reporter=reporter,
+    gemini_agent=gemini_agent
 )
 
 # Scheduler
