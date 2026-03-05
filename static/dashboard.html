@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo Electoral - Paloma Valencia</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a1a;
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #0f0f2e 0%, #1a1a3e 100%);
+            padding: 15px 25px;
+            border-bottom: 3px solid #e63946;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header .status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 6px;
+            color: #888;
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.warning { background: #f59e0b; }
+        .status-dot.error { background: #e63946; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        
+        .container {
+            padding: 15px 25px;
+            max-width: 1900px;
+            margin: 0 auto;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #151528;
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #252540;
+        }
+        
+        .stat-card h3 {
+            color: #888;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        .stat-card.positive { border-left: 3px solid #10b981; }
+        .stat-card.negative { border-left: 3px solid #e63946; }
+        .stat-card.neutral { border-left: 3px solid #6b7280; }
+        .stat-card.alert { border-left: 3px solid #f59e0b; }
+        .stat-card.highlight { border-left: 3px solid #8b5cf6; }
+        .stat-card.info { border-left: 3px solid #3b82f6; }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 15px;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+        
+        .panel {
+            background: #151528;
+            border-radius: 12px;
+            border: 1px solid #252540;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: #1a1a35;
+            padding: 12px 15px;
+            border-bottom: 1px solid #252540;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .panel-header h2 {
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn {
+            background: #e63946;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover { background: #d62839; }
+        .btn-secondary { background: #2a2a4a; }
+        .btn-secondary:hover { background: #3a3a5a; }
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        .btn-whatsapp { background: #25d366; }
+        .btn-whatsapp:hover { background: #128c7e; }
+        
+        .filters {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            background: #252540;
+            border: 1px solid #353560;
+            color: #aaa;
+            padding: 5px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover, .filter-btn.active {
+            background: #e63946;
+            border-color: #e63946;
+            color: white;
+        }
+        
+        .articles-list {
+            max-height: 550px;
+            overflow-y: auto;
+        }
+        
+        .article-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #252540;
+            transition: background 0.2s;
+        }
+        
+        .article-item:hover { background: #1e1e3a; }
+        .article-item.high-relevance {
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.1) 0%, transparent 100%);
+            border-left: 3px solid #8b5cf6;
+        }
+        .article-item.alert {
+            background: linear-gradient(90deg, rgba(230, 57, 70, 0.1) 0%, transparent 100%);
+            border-left: 3px solid #e63946;
+        }
+        .article-item.twitter {
+            background: linear-gradient(90deg, rgba(29, 161, 242, 0.1) 0%, transparent 100%);
+            border-left: 3px solid #1da1f2;
+        }
+        
+        .article-header {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .sentiment-positive { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .sentiment-negative { background: rgba(230, 57, 70, 0.2); color: #e63946; }
+        .sentiment-neutral { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
+        .relevance-high { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+        .region-badge { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .twitter-badge { background: rgba(29, 161, 242, 0.2); color: #1da1f2; }
+        
+        .article-title {
+            font-weight: 600;
+            line-height: 1.3;
+            color: #fff;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .article-title:hover { color: #e63946; }
+        
+        .article-meta {
+            font-size: 0.75rem;
+            color: #888;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .article-summary {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+        
+        .alert-banner {
+            background: linear-gradient(90deg, rgba(230, 57, 70, 0.2) 0%, rgba(230, 57, 70, 0.05) 100%);
+            border: 1px solid #e63946;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            animation: slideIn 0.4s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .chart-container {
+            padding: 12px;
+            height: 180px;
+        }
+        
+        .summary-panel, .competitor-list, .reports-list {
+            padding: 12px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        
+        .competitor-item, .report-item {
+            background: #1a1a35;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 1px solid #252540;
+        }
+        
+        .competitor-name { font-weight: 600; color: #fff; margin-bottom: 3px; }
+        .competitor-stats { font-size: 0.75rem; color: #888; }
+        
+        .report-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .report-name { font-size: 0.8rem; }
+        .report-date { font-size: 0.7rem; color: #666; }
+        
+        .search-box {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            border-bottom: 1px solid #252540;
+        }
+        
+        .search-input {
+            flex: 1;
+            background: #1a1a35;
+            border: 1px solid #353560;
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .search-input:focus { outline: none; border-color: #e63946; }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #353560;
+            border-top-color: #e63946;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #252540;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            padding: 10px 16px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #888;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        
+        .tab:hover { color: #fff; }
+        .tab.active {
+            color: #e63946;
+            border-bottom-color: #e63946;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .region-filter {
+            display: flex;
+            gap: 5px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #252540;
+            overflow-x: auto;
+        }
+        
+        .region-btn {
+            background: #1a1a35;
+            border: 1px solid #353560;
+            color: #888;
+            padding: 4px 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        
+        .region-btn:hover, .region-btn.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        .engagement-bar {
+            display: flex;
+            gap: 10px;
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .engagement-item {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Monitoreo Electoral - Paloma Valencia</h1>
+        <div class="status">
+            <span class="status-item">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="connection-status">Conectado</span>
+            </span>
+            <span class="status-item">📱 <span id="notif-status">Esperando config...</span></span>
+            <span class="status-item">📡 Fuentes: 6 agentes + 32 departamentos</span>
+            <span class="status-item">📊 Reportes: Cada hora</span>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="alert-container"></div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total (24h)</h3>
+                <div class="value" id="stat-total">-</div>
+            </div>
+            <div class="stat-card positive">
+                <h3>Positivas</h3>
+                <div class="value" id="stat-positive">-</div>
+            </div>
+            <div class="stat-card negative">
+                <h3>Negativas</h3>
+                <div class="value" id="stat-negative">-</div>
+            </div>
+            <div class="stat-card neutral">
+                <h3>Neutrales</h3>
+                <div class="value" id="stat-neutral">-</div>
+            </div>
+            <div class="stat-card alert">
+                <h3>Alertas</h3>
+                <div class="value" id="stat-alerts">-</div>
+            </div>
+            <div class="stat-card highlight">
+                <h3>Relevantes</h3>
+                <div class="value" id="stat-high-rel">-</div>
+            </div>
+            <div class="stat-card info">
+                <h3>Tweets</h3>
+                <div class="value" id="stat-tweets">-</div>
+            </div>
+        </div>
+        
+        <div class="main-grid">
+            <div>
+                <div class="panel">
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchTab('news')">📰 Noticias</div>
+                        <div class="tab" onclick="switchTab('twitter')">🐦 Twitter/X</div>
+                        <div class="tab" onclick="switchTab('search')">🔍 Buscar</div>
+                        <div class="tab" onclick="switchTab('reports')">📊 Reportes</div>
+                    </div>
+                    
+                    <div id="tab-news" class="tab-content active">
+                        <div class="region-filter">
+                            <button class="region-btn active" onclick="filterRegion('all')">Todas</button>
+                            <button class="region-btn" onclick="filterRegion('Nacional')">Nacional</button>
+                            <button class="region-btn" onclick="filterRegion('Bogotá')">Bogotá</button>
+                            <button class="region-btn" onclick="filterRegion('Medellín')">Medellín</button>
+                            <button class="region-btn" onclick="filterRegion('Cali')">Cali</button>
+                            <button class="region-btn" onclick="filterRegion('Barranquilla')">B/quilla</button>
+                        </div>
+                        <div class="panel-header">
+                            <div class="filters">
+                                <button class="filter-btn active" onclick="filterNews('all')">Todas</button>
+                                <button class="filter-btn" onclick="filterNews('positive')">✓ Pos</button>
+                                <button class="filter-btn" onclick="filterNews('negative')">⚠️ Neg</button>
+                                <button class="filter-btn" onclick="filterNews('high_relevance')">🔥 Rel</button>
+                                <button class="filter-btn" onclick="filterNews('alert')">🚨 Alert</button>
+                            </div>
+                            <div>
+                                <button class="btn btn-success" onclick="testNotifications()">📱 Probar</button>
+                                <button class="btn" onclick="triggerMonitoring()">▶️ Ahora</button>
+                            </div>
+                        </div>
+                        <div class="articles-list" id="articles-list">
+                            <div class="empty-state"><div class="loading"></div><p>Cargando...</p></div>
+                        </div>
+                    </div>
+                    
+                    <div id="tab-twitter" class="tab-content">
+                        <div class="panel-header">
+                            <h2>🐦 Tweets Monitoreados</h2>
+                            <button class="btn btn-secondary" onclick="loadTwitter()">↻ Actualizar</button>
+                        </div>
+                        <div class="articles-list" id="twitter-list">
+                            <div class="empty-state">Cargando tweets...</div>
+                        </div>
+                    </div>
+                    
+                    <div id="tab-search" class="tab-content">
+                        <div class="search-box">
+                            <input type="text" class="search-input" id="search-input" placeholder="Buscar en Google News..." onkeypress="if(event.key==='Enter')performSearch()">
+                            <button class="btn" onclick="performSearch()">Buscar</button>
+                        </div>
+                        <div class="articles-list" id="search-results">
+                            <div class="empty-state">Ingresa un término</div>
+                        </div>
+                    </div>
+                    
+                    <div id="tab-reports" class="tab-content">
+                        <div class="panel-header">
+                            <h2>📊 Reportes Excel Generados</h2>
+                            <button class="btn btn-secondary" onclick="loadReports()">↻</button>
+                        </div>
+                        <div class="reports-list" id="reports-list">
+                            <div class="empty-state">Cargando reportes...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="panel" style="margin-bottom: 12px;">
+                    <div class="panel-header">
+                        <h2>📈 Sentimiento</h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="panel" style="margin-bottom: 12px;">
+                    <div class="panel-header">
+                        <h2>🎯 Competencia</h2>
+                        <button class="btn btn-secondary" onclick="loadCompetitors()">↻</button>
+                    </div>
+                    <div class="competitor-list" id="competitor-list">
+                        <div class="empty-state" style="padding: 20px;">Cargando...</div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>📝 Resumen</h2>
+                        <button class="btn btn-secondary" onclick="loadSummary()">Generar</button>
+                    </div>
+                    <div class="summary-panel" id="summary-panel">
+                        Click en Generar para resumen
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const socket = io();
+        let sentimentChart = null;
+        let currentFilter = 'all';
+        let currentRegion = 'all';
+        let allArticles = [];
+        let twitterArticles = [];
+        
+        socket.on('connect', () => {
+            document.getElementById('connection-status').textContent = 'Conectado';
+            document.getElementById('status-dot').className = 'status-dot';
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('connection-status').textContent = 'Desconectado';
+            document.getElementById('status-dot').className = 'status-dot error';
+        });
+        
+        socket.on('stats_update', (stats) => {
+            updateStats(stats);
+            updateChart(stats);
+        });
+        
+        socket.on('new_alert', (alert) => {
+            showAlert(alert);
+        });
+        
+        socket.on('connected', (data) => {
+            if (data.phone) {
+                document.getElementById('whatsapp-status').textContent = data.phone.replace('whatsapp:', '');
+            }
+        });
+        
+        function updateStats(stats) {
+            document.getElementById('stat-total').textContent = stats.total;
+            document.getElementById('stat-positive').textContent = stats.positive;
+            document.getElementById('stat-negative').textContent = stats.negative;
+            document.getElementById('stat-neutral').textContent = stats.neutral;
+            document.getElementById('stat-alerts').textContent = stats.alerts;
+        }
+        
+        function updateChart(stats) {
+            const ctx = document.getElementById('sentimentChart').getContext('2d');
+            if (sentimentChart) sentimentChart.destroy();
+            
+            sentimentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Positivo', 'Negativo', 'Neutral'],
+                    datasets: [{
+                        data: [stats.positive, stats.negative, stats.neutral],
+                        backgroundColor: ['#10b981', '#e63946', '#6b7280'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#fff', font: { size: 10 }, boxWidth: 12 }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function showAlert(alert) {
+            const container = document.getElementById('alert-container');
+            const banner = document.createElement('div');
+            banner.className = 'alert-banner';
+            banner.innerHTML = `
+                <span style="font-size: 1.2rem;">🚨</span>
+                <div>
+                    <strong>Alerta (${alert.relevance || 0}):</strong> ${alert.title}
+                    <br><small style="color: #e63946;">${alert.reason}</small>
+                </div>
+            `;
+            container.prepend(banner);
+            setTimeout(() => banner.remove(), 15000);
+        }
+        
+        async function loadArticles() {
+            try {
+                const response = await fetch('/api/articles?hours=24&limit=150');
+                allArticles = await response.json();
+                applyFilters();
+                
+                const highRel = allArticles.filter(a => (a.relevance_score || 0) >= 30).length;
+                document.getElementById('stat-high-rel').textContent = highRel;
+                
+                // Contar tweets
+                const tweets = allArticles.filter(a => a.collected_via === 'twitter').length;
+                document.getElementById('stat-tweets').textContent = tweets;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        function applyFilters() {
+            let filtered = allArticles.filter(a => a.collected_via !== 'twitter');
+            
+            if (currentRegion !== 'all') {
+                filtered = filtered.filter(a => (a.region || 'Nacional') === currentRegion);
+            }
+            
+            if (currentFilter === 'positive') {
+                filtered = filtered.filter(a => a.sentiment === 'positive');
+            } else if (currentFilter === 'negative') {
+                filtered = filtered.filter(a => a.sentiment === 'negative');
+            } else if (currentFilter === 'high_relevance') {
+                filtered = filtered.filter(a => (a.relevance_score || 0) >= 30);
+            } else if (currentFilter === 'alert') {
+                filtered = filtered.filter(a => a.is_alert);
+            }
+            
+            renderArticles(filtered);
+        }
+        
+        function filterNews(type) {
+            currentFilter = type;
+            document.querySelectorAll('#tab-news .filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            applyFilters();
+        }
+        
+        function filterRegion(region) {
+            currentRegion = region;
+            document.querySelectorAll('.region-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            applyFilters();
+        }
+        
+        function renderArticles(articles) {
+            const container = document.getElementById('articles-list');
+            
+            if (articles.length === 0) {
+                container.innerHTML = '<div class="empty-state">Sin noticias. Ejecuta monitoreo.</div>';
+                return;
+            }
+            
+            container.innerHTML = articles.map(article => {
+                const relScore = article.relevance_score || 0;
+                const isHighRel = relScore >= 30;
+                const isAlert = article.is_alert;
+                const region = article.region || 'Nacional';
+                
+                let itemClass = 'article-item';
+                if (isAlert) itemClass += ' alert';
+                else if (isHighRel) itemClass += ' high-relevance';
+                
+                return `
+                <div class="${itemClass}">
+                    <div class="article-header">
+                        <span class="badge sentiment-${article.sentiment || 'neutral'}">
+                            ${article.sentiment === 'positive' ? '✓' : article.sentiment === 'negative' ? '⚠' : '○'}
+                        </span>
+                        ${isHighRel ? `<span class="badge relevance-high">🔥 ${relScore}</span>` : ''}
+                        ${isAlert ? '<span class="badge" style="background: rgba(230,57,70,0.3); color: #ff6b6b;">🚨</span>' : ''}
+                        <span class="badge region-badge">${region}</span>
+                    </div>
+                    <a href="${article.url}" target="_blank" class="article-title">${article.title}</a>
+                    <div class="article-meta">
+                        <span>📰 ${article.source}</span>
+                        <span>🕐 ${formatDate(article.published_at)}</span>
+                    </div>
+                    ${article.summary ? `<div class="article-summary">${article.summary.substring(0, 150)}...</div>` : ''}
+                </div>
+            `}).join('');
+        }
+        
+        function renderTwitter() {
+            const container = document.getElementById('twitter-list');
+            const tweets = allArticles.filter(a => a.collected_via === 'twitter');
+            
+            if (tweets.length === 0) {
+                container.innerHTML = '<div class="empty-state">Sin tweets aún</div>';
+                return;
+            }
+            
+            container.innerHTML = tweets.map(tweet => `
+                <div class="article-item twitter">
+                    <div class="article-header">
+                        <span class="badge twitter-badge">🐦 Twitter</span>
+                        <span class="badge sentiment-${tweet.sentiment || 'neutral'}">
+                            ${tweet.sentiment === 'positive' ? '✓' : tweet.sentiment === 'negative' ? '⚠' : '○'}
+                        </span>
+                    </div>
+                    <a href="${tweet.url}" target="_blank" class="article-title">${tweet.title}</a>
+                    <div class="article-meta">
+                        <span>👤 ${tweet.source}</span>
+                        <span>🕐 ${formatDate(tweet.published_at)}</span>
+                    </div>
+                    ${tweet.engagement ? `
+                    <div class="engagement-bar">
+                        <span class="engagement-item">❤️ ${tweet.likes || 0}</span>
+                        <span class="engagement-item">🔄 ${tweet.retweets || 0}</span>
+                        <span class="engagement-item">💬 ${tweet.replies || 0}</span>
+                    </div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return 'ahora';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = (now - date) / 1000 / 60;
+            
+            if (diff < 1) return 'ahora';
+            if (diff < 60) return `hace ${Math.floor(diff)}m`;
+            if (diff < 1440) return `hace ${Math.floor(diff / 60)}h`;
+            return date.toLocaleDateString('es-CO');
+        }
+        
+        async function loadStats() {
+            const response = await fetch('/api/stats?hours=24');
+            const stats = await response.json();
+            updateStats(stats);
+            updateChart(stats);
+        }
+        
+        async function triggerMonitoring() {
+            document.getElementById('articles-list').innerHTML = '<div class="empty-state"><div class="loading"></div><p>Recolectando de 5 fuentes + 12 regiones...</p></div>';
+            await fetch('/api/trigger', { method: 'POST' });
+            setTimeout(loadArticles, 10000);
+        }
+        
+        async function testNotifications() {
+            const btn = event.target;
+            btn.textContent = '⏳ Enviando...';
+            const response = await fetch('/api/notifications/test', { method: 'POST' });
+            const data = await response.json();
+            btn.textContent = '📱 Probar';
+            
+            if (data.services.any_available) {
+                alert('Mensaje enviado por: ' + Object.keys(data.results).join(', '));
+            } else {
+                alert('Modo simulado - Configura el archivo .env con CallMeBot, Telegram o Email');
+            }
+        }
+        
+        async function performSearch() {
+            const query = document.getElementById('search-input').value;
+            if (!query) return;
+            
+            const container = document.getElementById('search-results');
+            container.innerHTML = '<div class="empty-state"><div class="loading"></div><p>Buscando...</p></div>';
+            
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const data = await response.json();
+                renderSearchResults(data.articles);
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state">Error</div>';
+            }
+        }
+        
+        function renderSearchResults(articles) {
+            const container = document.getElementById('search-results');
+            
+            if (!articles || articles.length === 0) {
+                container.innerHTML = '<div class="empty-state">Sin resultados</div>';
+                return;
+            }
+            
+            container.innerHTML = articles.map(article => `
+                <div class="article-item">
+                    <a href="${article.url}" target="_blank" class="article-title">${article.title}</a>
+                    <div class="article-meta">
+                        <span>📰 ${article.source}</span>
+                        <span>🕐 ${formatDate(article.published_at)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function loadReports() {
+            try {
+                const response = await fetch('/api/reports/list');
+                const data = await response.json();
+                renderReports(data.reports);
+            } catch (error) {
+                document.getElementById('reports-list').innerHTML = '<div class="empty-state">Error</div>';
+            }
+        }
+        
+        function renderReports(reports) {
+            const container = document.getElementById('reports-list');
+            
+            if (!reports || reports.length === 0) {
+                container.innerHTML = '<div class="empty-state">Sin reportes aún</div>';
+                return;
+            }
+            
+            container.innerHTML = reports.map(r => {
+                const date = r.replace('reporte_', '').replace('.xlsx', '');
+                const formatted = date.substring(0, 4) + '-' + date.substring(4, 6) + '-' + date.substring(6, 8) + ' ' + date.substring(9, 11) + ':' + date.substring(11, 13);
+                return `
+                <div class="report-item">
+                    <div>
+                        <div class="report-name">📊 ${r}</div>
+                        <div class="report-date">${formatted}</div>
+                    </div>
+                    <a href="/api/reports/download/${r}" class="btn btn-secondary" download>⬇️</a>
+                </div>
+            `}).join('');
+        }
+        
+        async function loadCompetitors() {
+            try {
+                const response = await fetch('/api/competitors?hours=24');
+                const data = await response.json();
+                renderCompetitors(data);
+            } catch (error) {
+                document.getElementById('competitor-list').innerHTML = '<div class="empty-state">Error</div>';
+            }
+        }
+        
+        function renderCompetitors(data) {
+            const container = document.getElementById('competitor-list');
+            
+            if (!data || Object.keys(data).length === 0) {
+                container.innerHTML = '<div class="empty-state" style="padding: 20px;">Sin datos</div>';
+                return;
+            }
+            
+            container.innerHTML = Object.entries(data).map(([name, info]) => `
+                <div class="competitor-item">
+                    <div class="competitor-name">${name}</div>
+                    <div class="competitor-stats">
+                        ${info.mentions} menciones · 
+                        <span class="sentiment-${info.sentiment}">${info.sentiment}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function loadSummary() {
+            const panel = document.getElementById('summary-panel');
+            panel.innerHTML = '<div class="loading"></div> Generando...';
+            
+            try {
+                const response = await fetch('/api/summary?hours=24');
+                const data = await response.json();
+                panel.innerHTML = data.summary.replace(/\n/g, '<br>');
+            } catch (error) {
+                panel.innerHTML = 'Error.';
+            }
+        }
+        
+        function loadTwitter() {
+            renderTwitter();
+        }
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            if (tab === 'twitter') renderTwitter();
+            if (tab === 'reports') loadReports();
+        }
+        
+        function refreshAll() {
+            loadArticles();
+            loadStats();
+            loadCompetitors();
+        }
+        
+        // Init
+        loadArticles();
+        loadStats();
+        loadCompetitors();
+        setInterval(refreshAll, 30000);
+    </script>
+</body>
+</html>
