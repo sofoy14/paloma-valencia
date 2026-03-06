@@ -65,7 +65,7 @@ class Orchestrator:
         # AGENTE 2: Web Scraper (19 departamentos sin RSS via nodriver)
         # ============================================================
         # Solo ejecutar cada 2 ciclos para no sobrecargar
-        if self.stats['total_cycles'] % 2 == 0:
+        if self.agents.get('web_scraper') and self.stats['total_cycles'] % 2 == 0:
             web_articles = self._run_agent('web_scraper', lambda: self.agents['web_scraper'].scrape_sync(
                 max_age_hours=24,
                 max_per_site=3
@@ -73,7 +73,7 @@ class Orchestrator:
             all_articles.extend(web_articles)
             print(f"   📊 Subtotal Web Scraper: {len(web_articles)} artículos")
         else:
-            print(f"   ⏭️  Web Scraper omitido (ciclo par)")
+            print(f"   ⏭️  Web Scraper omitido (no disponible o ciclo par)")
         
         # ============================================================
         # AGENTE 3: NewsAPI
