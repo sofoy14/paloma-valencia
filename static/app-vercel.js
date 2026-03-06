@@ -1,31 +1,23 @@
-// Dashboard para Vercel - Sin backend persistente, todo en cliente
+// Dashboard para Vercel
 const API_URL = '/api';
-
-// Estado global
 let articles = [];
 let currentFilter = 'all';
 
-// Fetch noticias al cargar
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard Vercel cargado');
     loadNews();
-    // Refrescar cada 5 minutos
-    setInterval(loadNews, 5 * 60 * 1000);
+    setInterval(loadNews, 5 * 60 * 1000); // Refrescar cada 5 minutos
 });
 
 async function loadNews() {
     showLoading();
     
     try {
-        const response = await fetch(`${API_URL}/news`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'}
-        });
-        
+        const response = await fetch(`${API_URL}/news`);
         const data = await response.json();
+        
         articles = data.articles || [];
         
-        // Guardar en localStorage para persistencia
+        // Guardar en localStorage
         localStorage.setItem('paloma_news', JSON.stringify(articles));
         localStorage.setItem('last_update', new Date().toISOString());
         
@@ -34,7 +26,6 @@ async function loadNews() {
         
     } catch (error) {
         console.error('Error cargando noticias:', error);
-        // Intentar cargar de localStorage
         const cached = localStorage.getItem('paloma_news');
         if (cached) {
             articles = JSON.parse(cached);
@@ -48,7 +39,7 @@ async function loadNews() {
 
 function showLoading() {
     document.getElementById('articles-list').innerHTML = `
-        <div class="loading-container">
+        <div class="loading">
             <div class="spinner"></div>
             <p>Cargando noticias...</p>
         </div>
@@ -59,7 +50,7 @@ function renderArticles() {
     const container = document.getElementById('articles-list');
     
     if (articles.length === 0) {
-        container.innerHTML = '<div class="empty">No hay noticias disponibles</div>';
+        container.innerHTML = '<div class="loading">No hay noticias disponibles</div>';
         return;
     }
     
@@ -77,7 +68,7 @@ function renderArticles() {
     
     container.innerHTML = filtered.map(article => `
         <div class="article-card ${article.is_alert ? 'alert' : ''}">
-            <div class="article-header">
+            <div style="margin-bottom: 10px;">
                 <span class="badge sentiment-${article.sentiment || 'neutral'}">
                     ${getSentimentEmoji(article.sentiment)}
                 </span>
@@ -91,7 +82,7 @@ function renderArticles() {
                 <span>📰 ${article.source}</span>
                 <span>🕐 ${formatDate(article.published_at)}</span>
             </div>
-            ${article.summary ? `<p class="article-summary">${article.summary.substring(0, 150)}...</p>` : ''}
+            ${article.summary ? `<p style="color: #888; margin-top: 10px; font-size: 0.9em;">${article.summary.substring(0, 150)}...</p>` : ''}
         </div>
     `).join('');
 }
@@ -133,7 +124,7 @@ function refreshNews() {
     showNotification('Actualizando noticias...', 'info');
 }
 
-function showNotification(message, type = 'info') {
+function showNotification(message, type) {
     const notif = document.createElement('div');
     notif.className = `notification ${type}`;
     notif.textContent = message;
@@ -143,10 +134,10 @@ function showNotification(message, type = 'info') {
 
 function showError(message) {
     document.getElementById('articles-list').innerHTML = `
-        <div class="error">
+        <div style="text-align: center; padding: 50px; color: #ff4444;">
             <h3>⚠️ Error</h3>
             <p>${message}</p>
-            <button onclick="loadNews()">Reintentar</button>
+            <button onclick="loadNews()" style="padding: 10px 20px; margin-top: 20px; cursor: pointer;">Reintentar</button>
         </div>
     `;
 }
