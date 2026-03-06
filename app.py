@@ -15,7 +15,13 @@ from dotenv import load_dotenv
 # Importar modelos y agentes
 from models.database import NewsDatabase
 from agents.rss_agent import RSSAgent
-from agents.web_scraper_agent import WebScraperAgent
+try:
+    from agents.web_scraper_agent import WebScraperAgent
+    WEB_SCRAPER_AVAILABLE = True
+except ImportError as e:
+    print(f"[WebScraper] No disponible: {e}")
+    WebScraperAgent = None
+    WEB_SCRAPER_AVAILABLE = False
 from agents.newsapi_agent import NewsAPIAgent
 from agents.google_news_agent import GoogleNewsAgent
 from agents.twitter_agent import TwitterAgent
@@ -39,7 +45,7 @@ reporter = ExcelReporter(output_dir='reports')
 
 # Inicializar agentes individuales
 rss_agent = RSSAgent(mode='all_politics')
-web_scraper_agent = WebScraperAgent()
+web_scraper_agent = WebScraperAgent() if WEB_SCRAPER_AVAILABLE else None
 newsapi_agent = NewsAPIAgent()
 google_news_agent = GoogleNewsAgent()
 twitter_agent = TwitterAgent()
